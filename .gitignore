@@ -1,0 +1,10 @@
+*.pyc
+__pycache__/
+*.egg-info
+node_modules
+.DS_Store
+dump.rdb
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties

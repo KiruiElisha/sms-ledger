@@ -1,0 +1,177 @@
+{
+ "actions": [],
+ "autoname": "field:source_name",
+ "creation": "2026-10-26 18:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "source_name",
+  "enabled",
+  "parser",
+  "column_break_1",
+  "account",
+  "bank",
+  "bank_account",
+  "account_mask",
+  "filter_section",
+  "senders",
+  "column_break_2",
+  "must_contain",
+  "must_not_contain",
+  "transfer_section",
+  "match_names",
+  "pattern_section",
+  "patterns"
+ ],
+ "fields": [
+  {
+   "description": "e.g. M-Pesa, KCB",
+   "fieldname": "source_name",
+   "fieldtype": "Data",
+   "label": "Source Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "default": "M-Pesa",
+   "fieldname": "parser",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Parser",
+   "options": "M-Pesa\nBank Alert\nCustom Patterns Only",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "The Bank / Cash account in your Chart of Accounts this wallet or bank posts to.",
+   "fieldname": "account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Ledger Account",
+   "options": "Account"
+  },
+  {
+   "description": "Created automatically if empty.",
+   "fieldname": "bank",
+   "fieldtype": "Link",
+   "label": "Bank",
+   "options": "Bank"
+  },
+  {
+   "fieldname": "bank_account",
+   "fieldtype": "Link",
+   "label": "Company Bank Account",
+   "options": "Bank Account"
+  },
+  {
+   "description": "Bank alerts naming a different account are ignored. Also used to recognise transfers sent to this account from another source.",
+   "fieldname": "account_mask",
+   "fieldtype": "Data",
+   "label": "Your Account Number (or Last Digits)"
+  },
+  {
+   "fieldname": "filter_section",
+   "fieldtype": "Section Break",
+   "label": "Which Messages Belong to This Source"
+  },
+  {
+   "fieldname": "senders",
+   "fieldtype": "Table",
+   "label": "Sender IDs",
+   "options": "SMS Source Sender",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Leave empty to accept every message from the sender IDs.",
+   "fieldname": "must_contain",
+   "fieldtype": "Small Text",
+   "label": "Message Must Contain (one per line, any)"
+  },
+  {
+   "fieldname": "must_not_contain",
+   "fieldtype": "Small Text",
+   "label": "Message Must Not Contain (one per line)"
+  },
+  {
+   "fieldname": "transfer_section",
+   "fieldtype": "Section Break",
+   "label": "Transfer Matching"
+  },
+  {
+   "description": "How this account is named in OTHER sources' messages, e.g. KCB, KCB Bank, KCB M-PESA. Used to detect transfers between your own accounts.",
+   "fieldname": "match_names",
+   "fieldtype": "Small Text",
+   "label": "Also Known As (one per line)"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "pattern_section",
+   "fieldtype": "Section Break",
+   "label": "Custom Patterns"
+  },
+  {
+   "description": "Tried before the built-in parser. Use the Test Message button to check them.",
+   "fieldname": "patterns",
+   "fieldtype": "Table",
+   "label": "Patterns",
+   "options": "SMS Source Pattern"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-26 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "SMS Ledger",
+ "name": "SMS Source",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

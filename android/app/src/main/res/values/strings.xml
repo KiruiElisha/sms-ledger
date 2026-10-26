@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SMS Ledger</string>
+    <string name="intro">Sends M-PESA and bank SMS alerts to ERPNext. Only messages from the senders set up under SMS Source in ERPNext are read or sent.</string>
+    <string name="label_url">ERPNext site URL</string>
+    <string name="hint_url">https://erp.example.com</string>
+    <string name="label_key">API Key</string>
+    <string name="label_secret">API Secret</string>
+    <string name="save_and_test">Save and test connection</string>
+    <string name="grant_permission">Allow SMS access</string>
+    <string name="sync_now">Sync now</string>
+</resources>

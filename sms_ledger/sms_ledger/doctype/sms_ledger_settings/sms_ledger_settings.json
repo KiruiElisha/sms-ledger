@@ -1,0 +1,263 @@
+{
+ "actions": [],
+ "creation": "2026-10-26 18:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "general_section",
+  "enabled",
+  "company",
+  "auto_post",
+  "submit_entries",
+  "default_posting_mode",
+  "column_break_gen",
+  "auto_create_party",
+  "auto_create_bank",
+  "title_case_names",
+  "sync_days_back",
+  "accounts_section",
+  "default_income_account",
+  "default_expense_account",
+  "charges_account",
+  "column_break_acc",
+  "cash_account",
+  "airtime_account",
+  "savings_transfer_account",
+  "cost_center",
+  "party_section",
+  "incoming_party_type",
+  "outgoing_party_type",
+  "column_break_party",
+  "customer_group",
+  "supplier_group",
+  "territory",
+  "transfer_section",
+  "transfer_match_days",
+  "auto_fix_transfer_duplicates"
+ ],
+ "fields": [
+  {
+   "fieldname": "general_section",
+   "fieldtype": "Section Break",
+   "label": "General"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "description": "Off = messages are parsed and wait for review (status Parsed).",
+   "fieldname": "auto_post",
+   "fieldtype": "Check",
+   "label": "Post Entries Automatically"
+  },
+  {
+   "default": "1",
+   "description": "Off = Journal / Payment Entries are left as drafts.",
+   "fieldname": "submit_entries",
+   "fieldtype": "Check",
+   "label": "Submit Entries"
+  },
+  {
+   "default": "Journal Entry",
+   "description": "Journal Entry posts straight to income / expense (shows in Profit and Loss). Payment Entry posts against the party (receivable / payable) for matching to invoices.",
+   "fieldname": "default_posting_mode",
+   "fieldtype": "Select",
+   "label": "Default Posting Mode",
+   "options": "Journal Entry\nPayment Entry"
+  },
+  {
+   "fieldname": "column_break_gen",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "auto_create_party",
+   "fieldtype": "Check",
+   "label": "Create Missing Parties"
+  },
+  {
+   "default": "1",
+   "fieldname": "auto_create_bank",
+   "fieldtype": "Check",
+   "label": "Create Missing Banks"
+  },
+  {
+   "default": "1",
+   "description": "JOHN DOE becomes John Doe.",
+   "fieldname": "title_case_names",
+   "fieldtype": "Check",
+   "label": "Title Case New Party Names"
+  },
+  {
+   "default": "30",
+   "description": "How far back the phone app reads existing messages on first sync.",
+   "fieldname": "sync_days_back",
+   "fieldtype": "Int",
+   "label": "Phone: Read Inbox History (Days)"
+  },
+  {
+   "fieldname": "accounts_section",
+   "fieldtype": "Section Break",
+   "label": "Default Accounts"
+  },
+  {
+   "description": "Money received when no rule matches.",
+   "fieldname": "default_income_account",
+   "fieldtype": "Link",
+   "label": "Default Income Account",
+   "options": "Account",
+   "reqd": 1
+  },
+  {
+   "description": "Money paid out when no rule matches.",
+   "fieldname": "default_expense_account",
+   "fieldtype": "Link",
+   "label": "Default Expense Account",
+   "options": "Account",
+   "reqd": 1
+  },
+  {
+   "description": "M-PESA transaction cost, bank charges.",
+   "fieldname": "charges_account",
+   "fieldtype": "Link",
+   "label": "Transaction Charges Account",
+   "options": "Account",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_acc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Agent withdrawals / cash deposits are transferred to / from this account.",
+   "fieldname": "cash_account",
+   "fieldtype": "Link",
+   "label": "Cash Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "airtime_account",
+   "fieldtype": "Link",
+   "label": "Airtime Expense Account",
+   "options": "Account"
+  },
+  {
+   "description": "M-Shwari, Lock Savings and similar transfers when no SMS Source matches them.",
+   "fieldname": "savings_transfer_account",
+   "fieldtype": "Link",
+   "label": "Savings / Wallet Transfer Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "party_section",
+   "fieldtype": "Section Break",
+   "label": "Parties"
+  },
+  {
+   "default": "Customer",
+   "fieldname": "incoming_party_type",
+   "fieldtype": "Select",
+   "label": "Party Type for Money Received",
+   "options": "Customer\nSupplier"
+  },
+  {
+   "default": "Supplier",
+   "fieldname": "outgoing_party_type",
+   "fieldtype": "Select",
+   "label": "Party Type for Money Paid",
+   "options": "Supplier\nCustomer"
+  },
+  {
+   "fieldname": "column_break_party",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer_group",
+   "fieldtype": "Link",
+   "label": "Customer Group",
+   "options": "Customer Group"
+  },
+  {
+   "fieldname": "supplier_group",
+   "fieldtype": "Link",
+   "label": "Supplier Group",
+   "options": "Supplier Group"
+  },
+  {
+   "fieldname": "territory",
+   "fieldtype": "Link",
+   "label": "Territory",
+   "options": "Territory"
+  },
+  {
+   "fieldname": "transfer_section",
+   "fieldtype": "Section Break",
+   "label": "Transfers Between Your Own Accounts"
+  },
+  {
+   "default": "2",
+   "description": "An M-PESA send and the matching bank credit (or the reverse) within this many days and for the same amount are recorded once, as a transfer.",
+   "fieldname": "transfer_match_days",
+   "fieldtype": "Int",
+   "label": "Match Window (Days)"
+  },
+  {
+   "default": "1",
+   "description": "If one side was already posted as income / expense, cancel it and post the transfer instead.",
+   "fieldname": "auto_fix_transfer_duplicates",
+   "fieldtype": "Check",
+   "label": "Fix Already-Posted Side Automatically"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-26 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "SMS Ledger",
+ "name": "SMS Ledger Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

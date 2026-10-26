@@ -1,0 +1,22 @@
+name: Parser tests
+
+# The SMS parsers have no Frappe imports, so they run on plain Python.
+# Posting tests (sms_ledger/tests/test_posting.py) need a bench: run them with
+# bench --site <site> run-tests --app sms_ledger.
+
+on:
+  push:
+    paths: ["sms_ledger/**", ".github/workflows/tests.yml"]
+  pull_request:
+    paths: ["sms_ledger/**", ".github/workflows/tests.yml"]
+
+jobs:
+  parsers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - working-directory: sms_ledger
+        run: python -m unittest sms_ledger.tests.test_parsers -v
