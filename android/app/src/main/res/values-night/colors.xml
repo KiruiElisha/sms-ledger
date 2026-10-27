@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="money_in">#4CC38A</color>
+    <color name="money_out">#FF6B6B</color>
+    <color name="status_warn">#F0B23E</color>
+    <color name="muted">#9CA3AF</color>
+    <color name="card">#1C1F1E</color>
+    <color name="screen">#111413</color>
+    <color name="chart_grid">#33FFFFFF</color>
+</resources>

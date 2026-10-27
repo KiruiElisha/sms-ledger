@@ -71,6 +71,23 @@ class Prefs(private val ctx: Context) {
             sp.edit().putString("senders", arr.toString()).apply()
         }
 
+    var notify: Boolean
+        get() = sp.getBoolean("notify", true)
+        set(v) = sp.edit().putBoolean("notify", v).apply()
+
+    var hideAmounts: Boolean
+        get() = sp.getBoolean("hide_amounts", false)
+        set(v) = sp.edit().putBoolean("hide_amounts", v).apply()
+
+    /** The last dashboard the server sent, so the home screen opens with numbers when offline. */
+    var cachedDashboard: String
+        get() = sp.getString("cached_dashboard", "") ?: ""
+        set(v) = sp.edit().putString("cached_dashboard", v).apply()
+
+    var cachedDashboardAt: Long
+        get() = sp.getLong("cached_dashboard_at", 0L)
+        set(v) = sp.edit().putLong("cached_dashboard_at", v).apply()
+
     val isConfigured: Boolean
         get() = baseUrl.startsWith("https://") && apiKey.isNotBlank() && apiSecret.isNotBlank()
 

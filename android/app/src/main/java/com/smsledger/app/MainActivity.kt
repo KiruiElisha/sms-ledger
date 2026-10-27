@@ -1,94 +1,69 @@
 package com.smsledger.app
 
 import android.Manifest
-import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
-import android.widget.Toast
+import android.view.View
+import android.widget.FrameLayout
+import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.bottomnavigation.BottomNavigationView
 
-class MainActivity : Activity() {
+/** Three tabs: Home (the month), Activity (every message) and Settings (the connection). */
+class MainActivity : AppCompatActivity() {
 
     private lateinit var prefs: Prefs
-    private lateinit var url: EditText
-    private lateinit var apiKey: EditText
-    private lateinit var apiSecret: EditText
-    private lateinit var status: TextView
+    private lateinit var nav: BottomNavigationView
+    private lateinit var home: HomeScreen
+    private lateinit var feed: ActivityScreen
+    private lateinit var settings: SettingsScreen
+    private val loaded = mutableSetOf<Int>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         prefs = Prefs(this)
+        val screens = findViewById<FrameLayout>(R.id.screens)
+        home = HomeScreen(screens, prefs) { nav.selectedItemId = R.id.tab_activity; feed.showAttention() }
+        feed = ActivityScreen(screens, this, prefs)
+        settings = SettingsScreen(screens, prefs, ::hasSmsPermission, ::askPermissions) { loaded.clear() }
+        listOf(home.view, feed.view, settings.view).forEach { screens.addView(it) }
 
-        url = findViewById(R.id.url)
-        apiKey = findViewById(R.id.api_key)
-        apiSecret = findViewById(R.id.api_secret)
-        status = findViewById(R.id.status)
-
-        url.setText(prefs.baseUrl)
-        apiKey.setText(prefs.apiKey)
-        apiSecret.setText(prefs.apiSecret)
-
-        findViewById<Button>(R.id.save).setOnClickListener { saveAndTest() }
-        findViewById<Button>(R.id.permission).setOnClickListener { askPermission() }
-        findViewById<Button>(R.id.sync).setOnClickListener {
-            if (!prefs.isConfigured) {
-                toast("Save the connection details first")
-            } else {
-                SyncWorker.runNow(this)
-                toast("Sync started")
-                status.postDelayed({ refreshStatus() }, 4000)
-            }
-        }
+        nav = findViewById(R.id.nav)
+        nav.setOnItemSelectedListener { show(it.itemId); true }
+        val first = intent.getIntExtra(EXTRA_TAB, if (prefs.isConfigured) R.id.tab_home else R.id.tab_settings)
+        nav.selectedItemId = first
+        show(first)
 
         if (prefs.isConfigured) SyncWorker.schedule(this)
-        if (!hasSmsPermission()) askPermission()
+        if (!hasSmsPermission() || needsNotificationPermission()) askPermissions()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getIntExtra(EXTRA_TAB, 0).takeIf { it != 0 }?.let {
+            nav.selectedItemId = it
+            loaded.remove(it)
+            show(it)
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        refreshStatus()
+        settings.refresh()
     }
 
-    private fun saveAndTest() {
-        val u = url.text.toString().trim()
-        if (!u.startsWith("https://")) {
-            toast("Use the https:// address of your ERPNext site")
-            return
-        }
-        prefs.baseUrl = u
-        prefs.apiKey = apiKey.text.toString()
-        prefs.apiSecret = apiSecret.text.toString()
-        status.text = "Testing connection..."
-
-        Thread {
-            val message = try {
-                val cfg = ErpClient(prefs).getConfig()
-                prefs.applyConfig(cfg)
-                SyncWorker.schedule(this)
-                SyncWorker.runNow(this)
-                val senders = prefs.senders.joinToString { it.senderId }
-                "Connected as ${cfg.optString("user")}.\nWatching senders: ${senders.ifEmpty { "none - enable an SMS Source in ERPNext" }}\nFirst sync reads the last ${prefs.syncDaysBack} days."
-            } catch (e: Exception) {
-                "Connection failed: ${e.message ?: e.javaClass.simpleName}"
-            }
-            runOnUiThread { status.text = message + "\n\n" + statusText() }
-        }.start()
-    }
-
-    private fun refreshStatus() {
-        status.text = statusText()
-    }
-
-    private fun statusText(): String {
-        val senders = prefs.senders.joinToString { it.senderId }.ifEmpty { "-" }
-        return buildString {
-            appendLine("SMS access: ${if (hasSmsPermission()) "allowed" else "NOT allowed"}")
-            appendLine("Senders: $senders")
-            appendLine("Waiting to upload: ${PendingQueue(this@MainActivity).size()}")
-            append("Last sync: ${prefs.lastSyncSummary}")
+    /** Each tab loads the first time it is opened, and again by pulling down. */
+    private fun show(tab: Int) {
+        home.view.visibility = if (tab == R.id.tab_home) View.VISIBLE else View.GONE
+        feed.view.visibility = if (tab == R.id.tab_activity) View.VISIBLE else View.GONE
+        settings.view.visibility = if (tab == R.id.tab_settings) View.VISIBLE else View.GONE
+        if (!loaded.add(tab)) return
+        when (tab) {
+            R.id.tab_home -> home.load()
+            R.id.tab_activity -> feed.reload()
+            R.id.tab_settings -> settings.refresh()
         }
     }
 
@@ -96,21 +71,24 @@ class MainActivity : Activity() {
         checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
 
-    private fun askPermission() {
-        requestPermissions(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS), REQ_SMS)
+    private fun needsNotificationPermission() = Build.VERSION.SDK_INT >= 33 &&
+        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+
+    private fun askPermissions() {
+        val wanted = mutableListOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
+        if (Build.VERSION.SDK_INT >= 33) wanted += Manifest.permission.POST_NOTIFICATIONS
+        requestPermissions(wanted.toTypedArray(), REQ_PERMISSIONS)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_SMS) {
-            refreshStatus()
-            if (hasSmsPermission() && prefs.isConfigured) SyncWorker.runNow(this)
-        }
+        if (requestCode != REQ_PERMISSIONS) return
+        settings.refresh()
+        if (hasSmsPermission() && prefs.isConfigured) SyncWorker.runNow(this)
     }
 
-    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-
     companion object {
-        private const val REQ_SMS = 42
+        const val EXTRA_TAB = "tab"
+        private const val REQ_PERMISSIONS = 42
     }
 }

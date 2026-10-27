@@ -84,7 +84,9 @@ def _gl(voucher):
 	}
 
 
-class TestPosting(FrappeTestCase):
+class PostingCase(FrappeTestCase):
+	"""A company with M-Pesa and KCB sources set up, and a send() that runs the phone's upload."""
+
 	def setUp(self):
 		frappe.set_user("Administrator")
 		company = frappe.get_all("Company", pluck="name", limit=1)[0]
@@ -154,6 +156,8 @@ class TestPosting(FrappeTestCase):
 	def txn(self, reference):
 		return frappe.get_doc("SMS Transaction", {"reference": reference})
 
+
+class TestPosting(PostingCase):
 	def test_money_received_is_income_and_the_sender_becomes_a_customer_with_their_phone(self):
 		self.send((MPESA, RECEIVED))
 		txn = self.txn("TJK1ABC2DE")

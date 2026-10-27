@@ -55,13 +55,15 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             val inbox = if (canRead) InboxReader.read(ctx, since, prefs.senders) else emptyList()
 
             val all = (queued + inbox).distinctBy { it.dedupeKey }.sortedBy { it.timestamp }
-            var accepted = 0
             var duplicates = 0
+            val recorded = mutableListOf<SmsData>()
             all.chunked(BATCH).forEach { batch ->
                 val res = client.ingest(prefs.deviceId, batch)
-                accepted += res.optInt("accepted")
                 duplicates += res.optInt("duplicates")
+                recorded += acceptedIn(batch, res)
             }
+            val accepted = recorded.size
+            Notifier.recorded(ctx, recorded)
 
             queue.remove(queued.map { it.id })
             if (canRead) prefs.lastScanMs = startedAt
@@ -72,6 +74,16 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             prefs.lastSyncSummary = "${stamp()} - failed: ${e.message ?: e.javaClass.simpleName}"
             if (runAttemptCount < 5) Result.retry() else Result.failure()
         }
+    }
+
+    /** The messages in [batch] the server took as new (not duplicates or other senders). */
+    private fun acceptedIn(batch: List<SmsData>, res: org.json.JSONObject): List<SmsData> {
+        val results = res.optJSONArray("results") ?: return emptyList()
+        val ids = (0 until results.length()).map { results.getJSONObject(it) }
+            .filter { it.optString("status") == "accepted" }
+            .map { it.optString("id") }
+            .toSet()
+        return batch.filter { it.id in ids }
     }
 
     private fun stamp(): String = SimpleDateFormat("dd MMM HH:mm", Locale.getDefault()).format(Date())

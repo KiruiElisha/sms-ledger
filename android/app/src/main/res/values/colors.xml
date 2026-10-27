@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#0B7A47</color>
+    <color name="brand_dark">#075533</color>
+    <color name="money_in">#0B7A47</color>
+    <color name="money_out">#C62828</color>
+    <color name="status_warn">#B26A00</color>
+    <color name="muted">#6B7280</color>
+    <color name="card">#FFFFFF</color>
+    <color name="screen">#F4F6F5</color>
+    <color name="chart_grid">#1F000000</color>
+</resources>

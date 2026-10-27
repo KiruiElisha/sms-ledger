@@ -2,11 +2,35 @@
 <resources>
     <string name="app_name">SMS Ledger</string>
     <string name="intro">Sends M-PESA and bank SMS alerts to ERPNext. Only messages from the senders set up under SMS Source in ERPNext are read or sent.</string>
+    <string name="connection">ERPNext connection</string>
+    <string name="status">Status</string>
     <string name="label_url">ERPNext site URL</string>
-    <string name="hint_url">https://erp.example.com</string>
     <string name="label_key">API Key</string>
     <string name="label_secret">API Secret</string>
     <string name="save_and_test">Save and test connection</string>
     <string name="grant_permission">Allow SMS access</string>
     <string name="sync_now">Sync now</string>
+    <string name="notify_label">Notify me when messages are recorded</string>
+    <string name="hide_amounts_label">Hide amounts on the home screen</string>
+
+    <string name="tab_home">Home</string>
+    <string name="tab_activity">Activity</string>
+    <string name="tab_settings">Settings</string>
+
+    <string name="previous_month">Previous month</string>
+    <string name="next_month">Next month</string>
+    <string name="net_this_month">Net this month</string>
+    <string name="money_in">In</string>
+    <string name="money_out">Out</string>
+    <string name="charges">Charges</string>
+    <string name="balances">Balances</string>
+    <string name="last_14_days">Last 14 days</string>
+    <string name="where_it_went">Where the money went</string>
+    <string name="by_account">By account</string>
+
+    <string name="the_message">The message</string>
+    <string name="retry">Retry</string>
+    <string name="change_account">Change account</string>
+
+    <string name="channel_name">Recorded transactions</string>
 </resources>
