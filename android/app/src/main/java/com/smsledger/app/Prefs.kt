@@ -8,6 +8,8 @@ import org.json.JSONObject
 
 /** One "Sender ID" row from an SMS Source in ERPNext. */
 data class SenderRule(val senderId: String, val matchType: String) {
+    val key: String get() = "$matchType:${normalize(senderId)}"
+
     fun matches(address: String?): Boolean {
         val a = normalize(address ?: return false)
         val s = normalize(senderId)
@@ -39,10 +41,22 @@ class Prefs(private val ctx: Context) {
         get() = sp.getString("api_secret", "") ?: ""
         set(v) = sp.edit().putString("api_secret", v.trim()).apply()
 
-    /** Inbox messages newer than this (epoch ms) are read on the next sync. 0 = never synced. */
-    var lastScanMs: Long
-        get() = sp.getLong("last_scan_ms", 0L)
-        set(v) = sp.edit().putLong("last_scan_ms", v).apply()
+    /**
+     * How far each sender's inbox has been read (epoch ms), keyed by [SenderRule.key]. Kept per sender
+     * so one added or corrected in ERPNext still has its history read; a sender with no mark reads
+     * the last [syncDaysBack] days.
+     */
+    var scanMarks: Map<String, Long>
+        get() {
+            val o = JSONObject(sp.getString("scan_marks", "{}") ?: "{}")
+            return o.keys().asSequence().associateWith { o.getLong(it) }
+        }
+        set(v) = sp.edit().putString("scan_marks", JSONObject(v).toString()).apply()
+
+    /** Read every watched sender again from [fromMs]; the server drops what it already has. */
+    fun rewindScan(fromMs: Long) {
+        scanMarks = senders.associate { it.key to fromMs }
+    }
 
     var syncDaysBack: Int
         get() = sp.getInt("sync_days_back", 30)

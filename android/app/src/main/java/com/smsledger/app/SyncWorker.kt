@@ -44,15 +44,16 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             val queue = PendingQueue(ctx)
             val queued = queue.readAll()
             val startedAt = System.currentTimeMillis()
-            val since = if (prefs.lastScanMs == 0L) {
-                startedAt - prefs.syncDaysBack * DAY_MS
-            } else {
-                prefs.lastScanMs - OVERLAP_MS   // re-read a little; the server drops duplicates
-            }
+            val rules = prefs.senders
+            val since = sinceBySender(rules, prefs, startedAt)
 
             val canRead = ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_SMS) ==
                 PackageManager.PERMISSION_GRANTED
-            val inbox = if (canRead) InboxReader.read(ctx, since, prefs.senders) else emptyList()
+            val inbox = if (canRead && rules.isNotEmpty()) {
+                InboxReader.read(ctx, since.values.min(), rules).filter { sms ->
+                    rules.any { it.matches(sms.sender) && sms.timestamp > since.getValue(it.key) }
+                }
+            } else emptyList()
 
             val all = (queued + inbox).distinctBy { it.dedupeKey }.sortedBy { it.timestamp }
             var duplicates = 0
@@ -66,7 +67,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             Notifier.recorded(ctx, recorded)
 
             queue.remove(queued.map { it.id })
-            if (canRead) prefs.lastScanMs = startedAt
+            // only senders actually read move on: one added later in ERPNext still gets its history
+            if (canRead) prefs.scanMarks = prefs.scanMarks + rules.associate { it.key to startedAt }
             prefs.lastSyncSummary = "${stamp()} - sent ${all.size}: $accepted new, $duplicates already in ERPNext" +
                 if (!canRead) " (SMS permission missing: only live messages)" else ""
             Result.success()
@@ -74,6 +76,13 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             prefs.lastSyncSummary = "${stamp()} - failed: ${e.message ?: e.javaClass.simpleName}"
             if (runAttemptCount < 5) Result.retry() else Result.failure()
         }
+    }
+
+    /** Each sender from where it was last read (less an overlap), or [Prefs.syncDaysBack] days back. */
+    private fun sinceBySender(rules: List<SenderRule>, prefs: Prefs, now: Long): Map<String, Long> {
+        val marks = prefs.scanMarks
+        val fresh = now - prefs.syncDaysBack * DAY_MS
+        return rules.associate { rule -> rule.key to (marks[rule.key]?.let { it - OVERLAP_MS } ?: fresh) }
     }
 
     /** The messages in [batch] the server took as new (not duplicates or other senders). */

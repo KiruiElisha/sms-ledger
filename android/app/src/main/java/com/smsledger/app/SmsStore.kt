@@ -39,6 +39,30 @@ object InboxReader {
     }
 }
 
+/** A sender in the inbox that sends money messages: how many, and whether a source watches it. */
+data class MoneySender(val address: String, val count: Int, val watched: Boolean)
+
+object SenderFinder {
+    private val money = Regex("(?:Ksh|KES)\\s?[\\d,]+", RegexOption.IGNORE_CASE)
+
+    /** Every sender whose messages mention Ksh/KES, most messages first. Nothing leaves the phone. */
+    fun find(ctx: Context, rules: List<SenderRule>): List<MoneySender> {
+        val counts = mutableMapOf<String, Int>()
+        ctx.contentResolver.query(
+            Telephony.Sms.Inbox.CONTENT_URI, arrayOf("address", "body"), null, null, null
+        )?.use { c ->
+            val iAddr = c.getColumnIndexOrThrow("address")
+            val iBody = c.getColumnIndexOrThrow("body")
+            while (c.moveToNext()) {
+                val addr = c.getString(iAddr) ?: continue
+                if (money.containsMatchIn(c.getString(iBody) ?: "")) counts[addr] = (counts[addr] ?: 0) + 1
+            }
+        }
+        return counts.entries.sortedByDescending { it.value }
+            .map { (addr, n) -> MoneySender(addr, n, rules.any { it.matches(addr) }) }
+    }
+}
+
 /** Messages caught by the live receiver, kept until the server has them. */
 class PendingQueue(ctx: Context) {
     private val file = File(ctx.filesDir, "pending_sms.json")

@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 
 /** The ERPNext connection, SMS access, and the app's own preferences. */
@@ -29,6 +30,8 @@ class SettingsScreen(
         view.findViewById<View>(R.id.save).setOnClickListener { saveAndTest() }
         view.findViewById<View>(R.id.permission).setOnClickListener { askPermission() }
         view.findViewById<View>(R.id.sync).setOnClickListener { syncNow() }
+        view.findViewById<View>(R.id.history).setOnClickListener { readOlder() }
+        view.findViewById<View>(R.id.find_senders).setOnClickListener { findSenders() }
         view.findViewById<MaterialSwitch>(R.id.notify).apply {
             isChecked = prefs.notify
             setOnCheckedChangeListener { _, on -> prefs.notify = on }
@@ -48,6 +51,44 @@ class SettingsScreen(
         SyncWorker.runNow(ctx)
         toast("Sync started")
         status.postDelayed({ refresh() }, 4000)
+    }
+
+    private fun readOlder() {
+        if (!prefs.isConfigured || prefs.senders.isEmpty()) return toast("Connect to ERPNext first")
+        if (!hasSmsPermission()) return askPermission()
+        val day = 24L * 60 * 60 * 1000
+        val choices = listOf("Last 3 months" to 92 * day, "Last year" to 366 * day, "Everything" to Long.MAX_VALUE)
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle(R.string.read_older)
+            .setItems(choices.map { it.first }.toTypedArray()) { _, i ->
+                val back = choices[i].second
+                prefs.rewindScan(if (back == Long.MAX_VALUE) 1L else System.currentTimeMillis() - back)
+                SyncWorker.runNow(ctx)
+                toast("Reading ${choices[i].first.lowercase()}; this can take a few minutes")
+                status.postDelayed({ refresh() }, 6000)
+            }
+            .show()
+    }
+
+    /** Which inbox senders send Ksh/KES, so a source can be pointed at the right sender name. */
+    private fun findSenders() {
+        if (!hasSmsPermission()) return askPermission()
+        toast("Looking through the inbox…")
+        Background.run({ SenderFinder.find(ctx, prefs.senders) }) { result ->
+            val found = result.getOrElse { return@run toast(it.message ?: "Could not read the inbox") }
+            val lines = found.take(15).joinToString("\n") { s ->
+                "${if (s.watched) "✓" else "✗"} ${s.address}: ${s.count} message${if (s.count == 1) "" else "s"}"
+            }
+            MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.find_senders)
+                .setMessage(
+                    if (found.isEmpty()) "No message on this phone mentions Ksh or KES."
+                    else "$lines\n\n✓ is read by an SMS Source. For a ✗ sender you want, add its name as a " +
+                        "Sender ID on that SMS Source in ERPNext, then Sync now."
+                )
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        }
     }
 
     private fun saveAndTest() {

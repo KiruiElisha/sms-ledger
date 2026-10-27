@@ -32,5 +32,9 @@
     <string name="retry">Retry</string>
     <string name="change_account">Change account</string>
 
+    <string name="messages_on_phone">Messages on this phone</string>
+    <string name="messages_on_phone_hint">The app first reads the last 30 days. Read older messages to bring in your history; ERPNext skips any it already has.</string>
+    <string name="read_older">Read older messages</string>
+    <string name="find_senders">Find money senders</string>
     <string name="channel_name">Recorded transactions</string>
 </resources>

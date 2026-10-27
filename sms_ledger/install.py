@@ -34,7 +34,7 @@ def create_default_sources():
 		{
 			"source_name": "KCB",
 			"parser": "Bank Alert",
-			"senders": [{"sender_id": "KCB", "match_type": "Exact"}],
+			"senders": [{"sender_id": "KCB", "match_type": "Starts With"}],  # KCB, KCB_BANK, KCBGroup...
 			"must_contain": "",
 			"must_not_contain": "otp\none time pin\nloan limit\npassword",
 			"match_names": "KCB\nKCB Bank\nKCB Paybill\nKCB Paybill AC",
