@@ -95,14 +95,30 @@ def process_transaction(name: str, force: bool = False):
 		_save(txn)
 	except Exception:
 		frappe.db.rollback(save_point="sms_ledger_txn")
+		error = frappe.get_traceback()[-2000:]
 		txn.reload()
+		_reparse_quietly(txn)  # so the failed record still shows the amount and party
 		txn.status = "Failed"
-		txn.error = frappe.get_traceback()[-2000:]
+		txn.error = _first_line(error)
 		_save(txn)
 		frappe.log_error(
 			title=f"SMS Ledger: {name} failed", reference_doctype="SMS Transaction", reference_name=name
 		)
 	return txn
+
+
+def _reparse_quietly(txn):
+	try:
+		parse_into(txn, frappe.get_cached_doc("SMS Source", txn.source))
+	except Exception:  # noqa: BLE001, S110 - the traceback being saved is what matters here
+		pass
+
+
+def _first_line(traceback: str) -> str:
+	"""The exception's own message first, so the list view shows why rather than a stack frame."""
+	last = traceback.strip().splitlines()[-1] if traceback.strip() else ""
+	reason = last.split(": ", 1)[-1] if ": " in last else last
+	return f"{reason}\n\n{traceback}"[:2000]
 
 
 def _save(txn):
@@ -136,6 +152,15 @@ def parse_into(txn, source) -> bool:
 		return False
 
 	settings = frappe.get_cached_doc("SMS Ledger Settings")
+	_fill_from(txn, parsed, settings)
+	if parsed.notice:
+		txn.status = "Ignored"
+		txn.error = _(parsed.notice)
+		return False
+	return True
+
+
+def _fill_from(txn, parsed, settings):
 	txn.update(
 		{
 			"reference": parsed.reference,
@@ -154,7 +179,6 @@ def parse_into(txn, source) -> bool:
 	)
 	if parsed.counterparty_bank:
 		txn.counterparty_bank = ensure_bank(parsed.counterparty_bank)
-	return True
 
 
 def _looks_financial(message: str) -> bool:
@@ -486,6 +510,7 @@ def post(txn, settings, source):
 		or not txn.party
 		or txn.posting_mode != "Payment Entry"
 		or txn.party_type not in ("Customer", "Supplier", "Employee")
+		or not _party_in_company_currency(txn, settings, source)
 	):
 		txn.journal_entry = make_journal_entry(txn, settings, source)
 	else:
@@ -495,6 +520,14 @@ def post(txn, settings, source):
 
 	create_party_bank_account(txn)
 	txn.status = "Posted"
+
+
+def _party_in_company_currency(txn, settings, source) -> bool:
+	"""A Payment Entry here assumes one currency; anything else posts as a Journal Entry, which converts."""
+	from erpnext.accounts.party import get_party_account
+
+	party_account = get_party_account(txn.party_type, txn.party, settings.company)
+	return _single_currency(settings.company, source.account, party_account)
 
 
 def post_transfer_pair(txn, counterpart, settings, source):
@@ -630,10 +663,62 @@ def _new_je(txn, settings, voucher_type, remark):
 	je.pay_to_recd_from = (txn.counterparty or "")[:140] or None
 	je.user_remark = remark
 	je.flags.ignore_permissions = True
+	je.flags.source_account = frappe.get_cached_value("SMS Source", txn.source, "account")
 	return je
 
 
+def _currency(account):
+	return frappe.get_cached_value("Account", account, "account_currency")
+
+
+def _company_currency(company):
+	return frappe.get_cached_value("Company", company, "default_currency")
+
+
+def _convert_rows(je, source_account):
+	"""The SMS amount is in the source account's currency. Rows in another currency get it
+	converted at the day's rate, and the entry is marked multi-currency, which ERPNext requires."""
+	from erpnext.setup.utils import get_exchange_rate
+
+	company_currency = _company_currency(je.company)
+	source_currency = _currency(source_account) or company_currency
+	if all(
+		(_currency(r.account) or company_currency) == source_currency == company_currency for r in je.accounts
+	):
+		return
+	je.multi_currency = 1
+	day = str(je.posting_date)
+
+	def to_company(currency):
+		return 1 if currency == company_currency else flt(get_exchange_rate(currency, company_currency, day))
+
+	source_rate = to_company(source_currency)
+	for r in je.accounts:
+		currency = _currency(r.account) or company_currency
+		rate = to_company(currency)
+		if not rate or not source_rate:
+			frappe.throw(_("No exchange rate from {0} to {1} on {2}").format(currency, company_currency, day))
+		_convert_row(r, source_rate, rate)
+
+
+def _convert_row(row, source_rate, rate):
+	"""Pins the row's rate to its exact company-currency value, so rounding never unbalances the entry."""
+	for field in ("debit", "credit"):
+		in_company = flt(flt(row.get(f"{field}_in_account_currency")) * source_rate, 2)
+		in_account = flt(in_company / rate, 2)
+		row.set(f"{field}_in_account_currency", in_account)
+		if in_account:
+			row.exchange_rate = flt(in_company / in_account, 9)
+	row.exchange_rate = row.exchange_rate or rate
+
+
+def _single_currency(company, *accounts) -> bool:
+	return all(_currency(a) == _company_currency(company) for a in accounts)
+
+
 def _finish(doc, settings):
+	if doc.doctype == "Journal Entry":
+		_convert_rows(doc, doc.flags.source_account)
 	doc.insert(ignore_permissions=True)
 	if cint(settings.submit_entries):
 		doc.submit()

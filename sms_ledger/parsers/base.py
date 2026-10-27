@@ -93,6 +93,7 @@ class ParsedTransaction:
 	transaction_datetime: datetime | None = None
 	related_reference: str | None = None  # e.g. original code of a reversal
 	account_hint: str | None = None  # masked own account from bank alerts ("****4521")
+	notice: str | None = None  # why this message moves no money in this account (it is only a notice)
 
 	def as_dict(self) -> dict:
 		d = asdict(self)
@@ -186,6 +187,11 @@ def normalize_phone(phone: str | None) -> str | None:
 	if p.startswith("0") and len(p) == 10:
 		p = "254" + p[1:]
 	return p
+
+
+def is_phone(number: str | None) -> bool:
+	"""A Kenyan mobile number, masked or not: 0712..., 2547..., 254****381."""
+	return bool(number) and bool(re.match(r"^(?:\+?254[17\*xX]|0[17])", number))
 
 
 def is_masked(value: str | None) -> bool:

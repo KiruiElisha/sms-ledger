@@ -117,6 +117,8 @@ def parse(body: str) -> ParsedTransaction | None:
 	if m := (RECEIVED_RE.search(text) or RECEIVED_BIZ_RE.search(text)):
 		name, number = split_name_and_number(m.group(2))
 		bank = detect_bank(name)
+		if bank:  # "KCB 1 501901": the bank's paybill digits are not part of its name
+			name = re.sub(r"(?:\s+\d+)+$", "", name)
 		kw = {"counterparty": clean_name(name), "counterparty_bank": bank}
 		if number:
 			# bank-to-mpesa messages put an account/ref number where a phone would be

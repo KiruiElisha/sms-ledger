@@ -28,6 +28,7 @@ from .base import (
 	ParsedTransaction,
 	clean_name,
 	detect_bank,
+	is_phone,
 	normalize_text,
 	parse_amount,
 	parse_datetime,
@@ -44,7 +45,8 @@ CREDIT_WORDS = re.compile(
 	r"\b(credited|received|deposited|deposit\s+of|has\s+been\s+paid\s+into|incoming|cr\b)", F
 )
 DEBIT_WORDS = re.compile(
-	r"\b(debited|withdrawn|withdrawal|sent\s+to|paid\s+to|payment\s+to|purchase|transferred\s+to|dr\b)", F
+	r"\b(debited|withdrawn|withdrawal|sent\s+to|sent\s+from|paid\s+to|payment\s+to|purchase|transferred\s+to|dr\b)",
+	F,
 )
 
 BALANCE_RE = re.compile(
@@ -61,6 +63,14 @@ REF_RE = re.compile(
 	r"mpesa\s*(?:ref|code)|m-pesa\s*(?:ref|code))\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9\-/]{4,})",
 	F,
 )
+# KCB starts its own alerts with the transaction code: "MBNHE3TF7P9589O2 KES 2,000.00 sent from ..."
+LEAD_REF_RE = re.compile(r"^([A-Z0-9]{8,24})\b")
+MPESA_REF_RE = re.compile(r"m-?pesa\s*(?:ref(?:erence)?|code)\.?\s*[:#\-]?\s*([A-Z0-9]{10})\b", F)
+SENT_FROM_RE = re.compile(r"\bsent\s+from\s+([\dXx\*]{3,})", F)
+# KCB's notice to whoever received money it sent to M-PESA or another wallet. The money is
+# recorded by the wallet's own message, so this one posts nothing.
+RECIPIENT_NOTICE_RE = re.compile(r"\bconfirmed\b.*\breceived\s+from\b.*\bvia\s+[A-Za-z]", F)
+LEADING_NUMBER_RE = re.compile(r"^(\+?[\d\*xX]{6,})\s*-\s*(.+)$")
 MPESA_CODE_RE = re.compile(r"\b([A-Z]{1,3}[A-Z0-9]{7,9})\b")
 ACCOUNT_RE = re.compile(
 	r"(?:a/c|acc(?:ount)?|acct)\.?\s*(?:no\.?|number)?\s*(?:ending\s*(?:in|with)?\s*)?:?\s*([\dXx\*]{3,}[\dXx\*\-]*)",
@@ -108,6 +118,8 @@ def _party(text: str, direction: str) -> tuple[str | None, str | None]:
 			continue
 		if AMOUNT_RE.match(candidate):
 			continue
+		if lead := LEADING_NUMBER_RE.match(candidate):  # "254****381 - JOHN DOE"
+			return clean_name(lead.group(2)), lead.group(1)
 		return split_name_and_number(candidate)
 	return None, None
 
@@ -146,18 +158,8 @@ def parse(
 
 	bal_m = BALANCE_RE.search(text)
 	charge_m = CHARGE_RE.search(text)
-	ref_m = REF_RE.search(text)
-	reference = ref_m.group(1).strip("-/.").upper() if ref_m else None
-	related = None
-	if not reference:
-		code_m = MPESA_CODE_RE.search(text)
-		if code_m and re.search(r"\d", code_m.group(1)):
-			reference = code_m.group(1)
-	if reference and re.fullmatch(r"[A-Z0-9]{10}", reference) and re.search(r"m-?pesa", text, F):
-		# keep the M-PESA code so the matching M-PESA message can be paired
-		related = reference
-
-	acct_m = ACCOUNT_RE.search(text)
+	reference, related = _references(text)
+	acct_m = ACCOUNT_RE.search(text) or SENT_FROM_RE.search(text)
 	party, number = _party(text, direction)
 
 	return ParsedTransaction(
@@ -169,9 +171,44 @@ def parse(
 		charges=parse_amount(charge_m.group(1)) or 0.0 if charge_m else 0.0,
 		balance=parse_amount(bal_m.group(1)) if bal_m else None,
 		counterparty=party,
-		counterparty_phone=number if number and re.match(r"^(?:\+?254|0)[17]", number) else None,
-		counterparty_account=number if number and not re.match(r"^(?:\+?254|0)[17]", number) else None,
+		counterparty_phone=number if is_phone(number) else None,
+		counterparty_account=number if number and not is_phone(number) else None,
 		counterparty_bank=detect_bank(party),
 		transaction_datetime=_datetime(text),
 		account_hint=acct_m.group(1) if acct_m else None,
+		notice=_notice(text),
 	)
+
+
+def _notice(text: str) -> str | None:
+	if RECIPIENT_NOTICE_RE.search(text):
+		return "Notice to the recipient of a bank transfer: the receiving wallet's own message records it"
+	return None
+
+
+def _lead_reference(text: str) -> str | None:
+	m = LEAD_REF_RE.match(text)
+	code = m.group(1) if m else ""
+	return code if re.search(r"\d", code) and re.search(r"[A-Z]", code) else None
+
+
+def _references(text: str) -> tuple[str | None, str | None]:
+	"""The bank's own reference, and the M-PESA code that pairs it with the M-PESA message."""
+	mpesa_m = MPESA_REF_RE.search(text)
+	related = mpesa_m.group(1).upper() if mpesa_m else None
+	reference = _lead_reference(text)
+	ref_m = REF_RE.search(text)
+	if not reference and ref_m:
+		reference = ref_m.group(1).strip("-/.").upper()
+	if not reference:
+		code_m = MPESA_CODE_RE.search(text)
+		if code_m and re.search(r"\d", code_m.group(1)):
+			reference = code_m.group(1)
+	if (
+		not related
+		and reference
+		and re.fullmatch(r"[A-Z0-9]{10}", reference)
+		and re.search(r"m-?pesa", text, F)
+	):
+		related = reference  # keep the M-PESA code so the matching M-PESA message can be paired
+	return reference, related

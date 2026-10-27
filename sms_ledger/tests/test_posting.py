@@ -44,6 +44,18 @@ TO_EQUITY = (
 	"TJK5EFG6HI Confirmed. Ksh4,000.00 sent to EQUITY BANK for account 0170299999999 on 22/10/25 at 11:00 AM "
 	"New M-PESA balance is Ksh1,000.00. Transaction cost, Ksh0.00."
 )
+KCB_TO_MPESA = (
+	"MBNHE3TF7P9589O2  KES 2,000.00 sent from 128****079 to 254****381 - ELISHA KIPKEMOI KIRUI on "
+	"2026-10-26 09:46:06 AM. M-PESA REF: UJQIGBPD21"
+)
+KCB_RECIPIENT_NOTICE = (
+	"MBNHE3TF7P9589O2 Confirmed.  KES 2,000.00 received from ELISHA KIPKEMOI KIRUI - 128****079 on "
+	"2026-10-26 09:46:06 AM via KCB."
+)
+MPESA_FROM_KCB = (
+	"UJQIGBPD21 Confirmed.You have received Ksh2,000.00 from KCB 1 501901 on 26/10/26 at 9:46 AM New M-PESA "
+	"balance is Ksh2,028.97. See all your balances now https://saf.cx/kWQpy."
+)
 PROMO = "Pata bonus! Buy bundles now and get 50% extra. Dial *544#"
 
 
@@ -255,3 +267,59 @@ class TestPosting(FrappeTestCase):
 			(pe.payment_type, pe.party, pe.paid_to, pe.paid_amount, pe.docstatus),
 			("Receive", "John Doe", self.mpesa, 1500.0, 1),
 		)
+
+	def test_kcb_to_mpesa_is_one_transfer_and_kcbs_notice_to_the_recipient_posts_nothing(self):
+		frappe.db.set_value("SMS Source", "KCB", "account_mask", "1280000079")
+		self._clear_caches()
+		self.send((KCB, KCB_TO_MPESA), (KCB, KCB_RECIPIENT_NOTICE), (MPESA, MPESA_FROM_KCB))
+		notice = frappe.get_all("SMS Transaction", {"source": "KCB", "status": "Ignored"}, ["error"])
+		self.assertEqual(len(notice), 1)
+		self.assertIn("Notice to the recipient", notice[0].error)
+		mpesa = self.txn("UJQIGBPD21")
+		kcb = frappe.get_doc("SMS Transaction", {"source": "KCB", "status": ["!=", "Ignored"]})
+		self.assertEqual({mpesa.status, kcb.status}, {"Posted", "Linked"}, (mpesa.error, kcb.error))
+		posted = mpesa if mpesa.status == "Posted" else kcb
+		self.assertEqual(_gl(posted.journal_entry), {self.mpesa: 2000.0, self.kcb: -2000.0})
+
+	def test_an_account_in_another_currency_is_converted_instead_of_failing(self):
+		company = frappe.db.get_single_value("SMS Ledger Settings", "company")
+		currency = frappe.get_cached_value("Company", company, "default_currency")
+		foreign = "USD" if currency != "USD" else "EUR"
+		abbr = frappe.get_cached_value("Company", company, "abbr")
+		account = frappe.get_doc(
+			{
+				"doctype": "Account",
+				"account_name": f"Travel {foreign}",
+				"company": company,
+				"parent_account": f"Indirect Expenses - {abbr}",
+				"account_currency": foreign,
+			}
+		).insert(ignore_permissions=True)
+		frappe.get_doc(
+			{
+				"doctype": "Currency Exchange",
+				"date": "2025-10-01",
+				"from_currency": foreign,
+				"to_currency": currency,
+				"exchange_rate": 125,
+				"for_buying": 1,
+				"for_selling": 1,
+			}
+		).insert(ignore_permissions=True)
+		frappe.db.set_single_value("SMS Ledger Settings", "default_expense_account", account.name)
+		self._clear_caches()
+		self.send((MPESA, TILL))
+		paid = self.txn("TJK3CDE4FG")
+		self.assertEqual(paid.status, "Posted", paid.error)
+		je = frappe.get_doc("Journal Entry", paid.journal_entry)
+		self.assertTrue(je.multi_currency)
+		row = next(r for r in je.accounts if r.account == account.name)
+		self.assertEqual((flt(row.debit_in_account_currency, 2), flt(row.debit, 2)), (2.8, 350.0))
+
+	def test_a_failed_posting_keeps_the_amount_and_says_why_first(self):
+		frappe.db.set_single_value("SMS Ledger Settings", "default_expense_account", None)
+		self._clear_caches()
+		self.send((MPESA, TILL))
+		paid = self.txn("TJK3CDE4FG")
+		self.assertEqual((paid.status, paid.amount, paid.direction), ("Failed", 350.0, "Out"))
+		self.assertTrue(paid.error.startswith("No offset account could be determined"), paid.error)

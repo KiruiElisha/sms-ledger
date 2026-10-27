@@ -48,6 +48,26 @@ class TestMpesa(unittest.TestCase):
 		self.assertEqual(t.counterparty_account, "1234567")
 		self.assertIsNone(t.counterparty_phone)
 
+	def test_received_from_kcb_drops_the_paybill_digits_from_the_name(self):
+		t = mp(
+			"UJQIGBPD21 Confirmed.You have received Ksh2,000.00 from KCB 1 501901 on 26/10/26 at 9:46 AM "
+			"New M-PESA balance is Ksh2,028.97. See all your balances now https://saf.cx/kWQpy."
+		)
+		self.assertEqual(
+			(t.counterparty, t.counterparty_bank, t.counterparty_account), ("KCB", "KCB Bank", "501901")
+		)
+		self.assertEqual((t.amount, t.balance), (2000.0, 2028.97))
+
+	def test_sent_to_a_name_without_a_number(self):
+		t = mp(
+			"UJRIGBTXTO Confirmed. Ksh30.00 sent to LAMECK  OKEMWA on 27/10/26 at 10:13 AM. New M-PESA balance "
+			"is Ksh1,151.97. Transaction cost, Ksh0.00. Amount you can transact within the day is 499,820.00."
+		)
+		self.assertEqual(
+			(t.direction, t.amount, t.charges, t.counterparty), ("Out", 30.0, 0.0, "LAMECK OKEMWA")
+		)
+		self.assertEqual(t.transaction_datetime, datetime(2026, 10, 27, 10, 13))
+
 	def test_sent(self):
 		t = mp(
 			"TJK3ABC12F Confirmed. Ksh1,000.00 sent to JANE DOE 0722000000 on 20/10/25 at 10:01 AM. "
@@ -170,6 +190,28 @@ class TestBankAlerts(unittest.TestCase):
 		)
 		self.assertEqual(t.related_reference, "TJK3ABC12H")
 		self.assertEqual(t.direction, "In")
+
+	def test_kcb_send_to_mpesa_keeps_both_codes(self):
+		t = parse_message(
+			"MBNHE3TF7P9589O2  KES 2,000.00 sent from 128****079 to 254****381 - ELISHA KIPKEMOI KIRUI on "
+			"2026-10-26 09:46:06 AM. M-PESA REF: UJQIGBPD21",
+			PARSER_BANK,
+		)
+		self.assertEqual((t.direction, t.amount), ("Out", 2000.0))
+		self.assertEqual((t.reference, t.related_reference), ("MBNHE3TF7P9589O2", "UJQIGBPD21"))
+		self.assertEqual((t.counterparty, t.counterparty_phone), ("ELISHA KIPKEMOI KIRUI", "254****381"))
+		self.assertEqual(t.account_hint, "128****079")
+		self.assertEqual(t.transaction_datetime, datetime(2026, 10, 26, 9, 46, 6))
+		self.assertIsNone(t.notice)
+
+	def test_kcb_notice_to_the_recipient_is_marked_as_a_notice(self):
+		t = parse_message(
+			"MBNHE3TF7P9589O2 Confirmed.  KES 2,000.00 received from ELISHA KIPKEMOI KIRUI - 128****079 on "
+			"2026-10-26 09:46:06 AM via KCB.",
+			PARSER_BANK,
+		)
+		self.assertEqual(t.reference, "MBNHE3TF7P9589O2")
+		self.assertIn("Notice to the recipient", t.notice)
 
 	def test_no_money(self):
 		self.assertIsNone(
