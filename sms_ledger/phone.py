@@ -136,7 +136,7 @@ def activity(start=0, page_length=30, status: str | None = None) -> list[dict]:
 		"SMS Transaction",
 		filters=filters,
 		fields=FEED_FIELDS,
-		order_by="coalesce(transaction_date, received_at) desc, creation desc",
+		order_by="transaction_date desc, creation desc",
 		start=cint(start),
 		page_length=min(cint(page_length) or 30, 100),
 	)
@@ -156,7 +156,7 @@ def accounts() -> list[dict]:
 			"root_type": ["in", ["Income", "Expense"]],
 		},
 		fields=["name", "account_name", "root_type"],
-		order_by="root_type, account_name",
+		order_by="root_type asc, account_name asc",
 	)
 
 

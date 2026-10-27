@@ -122,6 +122,7 @@ def ingest(messages=None, device_id=None):
 			continue
 
 		frappe.db.savepoint("sms_ingest")
+		received_at = _to_system_datetime(m.timestamp) or now_datetime()
 		try:
 			doc = frappe.get_doc(
 				{
@@ -130,7 +131,9 @@ def ingest(messages=None, device_id=None):
 					"sender": sender[:140],
 					"message": body,
 					"message_hash": h,
-					"received_at": _to_system_datetime(m.timestamp) or now_datetime(),
+					"received_at": received_at,
+					# the SMS's own date replaces this once parsed; until then the feed sorts by arrival
+					"transaction_date": received_at,
 					"device_id": (device_id or m.device_id or "")[:140],
 					"status": "Pending",
 				}

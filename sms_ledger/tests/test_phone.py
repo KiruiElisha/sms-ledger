@@ -54,3 +54,11 @@ class TestPhone(PostingCase):
 		self.send((MPESA, TILL))
 		with self.assertRaisesRegex(frappe.ValidationError, "Pick an income or expense account"):
 			phone.recategorise(self.txn("TJK3CDE4FG").name, self.kcb)
+
+	def test_the_feed_sorts_a_message_it_could_not_read_by_when_it_arrived(self):
+		odd = "ZZZ1234567 Confirmed. Ksh50.00 something new from Safaricom we cannot read yet."
+		self.send_results = self.send((MPESA, RECEIVED), (MPESA, odd))["results"]
+		sent = {r["name"] for r in self.send_results}
+		feed = [r for r in phone.activity() if r.name in sent]
+		self.assertEqual([r.status for r in feed], ["Unparsed", "Posted"])
+		self.assertTrue(all(r.transaction_date for r in feed))
