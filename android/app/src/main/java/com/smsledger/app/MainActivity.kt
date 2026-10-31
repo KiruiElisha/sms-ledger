@@ -10,12 +10,13 @@ import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
-/** Three tabs: Home (the month), Activity (every message) and Settings (the connection). */
+/** Four tabs: Home (the month), Insights (trends and where money went), Activity (every message) and Settings. */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var prefs: Prefs
     private lateinit var nav: BottomNavigationView
     private lateinit var home: HomeScreen
+    private lateinit var insights: InsightsScreen
     private lateinit var feed: ActivityScreen
     private lateinit var settings: SettingsScreen
     private val loaded = mutableSetOf<Int>()
@@ -26,9 +27,10 @@ class MainActivity : AppCompatActivity() {
         prefs = Prefs(this)
         val screens = findViewById<FrameLayout>(R.id.screens)
         home = HomeScreen(screens, prefs) { nav.selectedItemId = R.id.tab_activity; feed.showAttention() }
+        insights = InsightsScreen(screens, prefs)
         feed = ActivityScreen(screens, this, prefs)
         settings = SettingsScreen(screens, prefs, ::hasSmsPermission, ::askPermissions) { loaded.clear() }
-        listOf(home.view, feed.view, settings.view).forEach { screens.addView(it) }
+        listOf(home.view, insights.view, feed.view, settings.view).forEach { screens.addView(it) }
 
         nav = findViewById(R.id.nav)
         nav.setOnItemSelectedListener { show(it.itemId); true }
@@ -57,11 +59,13 @@ class MainActivity : AppCompatActivity() {
     /** Each tab loads the first time it is opened, and again by pulling down. */
     private fun show(tab: Int) {
         home.view.visibility = if (tab == R.id.tab_home) View.VISIBLE else View.GONE
+        insights.view.visibility = if (tab == R.id.tab_insights) View.VISIBLE else View.GONE
         feed.view.visibility = if (tab == R.id.tab_activity) View.VISIBLE else View.GONE
         settings.view.visibility = if (tab == R.id.tab_settings) View.VISIBLE else View.GONE
         if (!loaded.add(tab)) return
         when (tab) {
             R.id.tab_home -> home.load()
+            R.id.tab_insights -> insights.load()
             R.id.tab_activity -> feed.reload()
             R.id.tab_settings -> settings.refresh()
         }

@@ -33,6 +33,9 @@ class ErpClient(private val prefs: Prefs) {
     fun dashboard(month: String): JSONObject =
         call("GET", "sms_ledger.phone.dashboard", JSONObject().put("month", month)) as? JSONObject ?: JSONObject()
 
+    fun insights(month: String): JSONObject =
+        call("GET", "sms_ledger.phone.insights", JSONObject().put("month", month)) as? JSONObject ?: JSONObject()
+
     fun activity(start: Int, status: String?): JSONArray {
         val args = JSONObject().put("start", start).put("page_length", PAGE)
         if (status != null) args.put("status", status)

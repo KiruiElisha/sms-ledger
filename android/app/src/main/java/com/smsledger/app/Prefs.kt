@@ -98,6 +98,10 @@ class Prefs(private val ctx: Context) {
         get() = sp.getString("cached_dashboard", "") ?: ""
         set(v) = sp.edit().putString("cached_dashboard", v).apply()
 
+    var cachedInsights: String
+        get() = sp.getString("cached_insights", "") ?: ""
+        set(v) = sp.edit().putString("cached_insights", v).apply()
+
     var cachedDashboardAt: Long
         get() = sp.getLong("cached_dashboard_at", 0L)
         set(v) = sp.edit().putLong("cached_dashboard_at", v).apply()

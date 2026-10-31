@@ -9,4 +9,13 @@
     <color name="card">#FFFFFF</color>
     <color name="screen">#F4F6F5</color>
     <color name="chart_grid">#1F000000</color>
+    <color name="ink">#111827</color>
+    <color name="brand_soft">#E7F3EC</color>
+    <!-- Chart series, in order: distinct hues that stay apart for colour-blind readers. -->
+    <color name="chart_1">#0B7A47</color>
+    <color name="chart_2">#2563EB</color>
+    <color name="chart_3">#D97706</color>
+    <color name="chart_4">#7C3AED</color>
+    <color name="chart_5">#DB2777</color>
+    <color name="chart_6">#64748B</color>
 </resources>
