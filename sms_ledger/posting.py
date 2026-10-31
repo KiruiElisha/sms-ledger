@@ -11,7 +11,7 @@ import string
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, cint, flt, get_datetime, getdate, now_datetime
+from frappe.utils import add_days, cint, date_diff, flt, get_datetime, getdate, now_datetime
 
 from sms_ledger.parsers import IN, OUT, normalize_phone, parse_message
 from sms_ledger.parsers.base import (
@@ -174,11 +174,25 @@ def _fill_from(txn, parsed, settings):
 			"counterparty": _display_name(parsed.counterparty, settings),
 			"counterparty_phone": parsed.counterparty_phone,
 			"counterparty_account": parsed.counterparty_account,
-			"transaction_date": parsed.transaction_datetime or txn.received_at or now_datetime(),
+			"transaction_date": transaction_date(parsed.transaction_datetime, txn.received_at),
 		}
 	)
 	if parsed.counterparty_bank:
 		txn.counterparty_bank = ensure_bank(parsed.counterparty_bank)
+
+
+# A bank SMS arrives within minutes of the transaction, so a date further than this from the phone's
+# timestamp was misread: "25-09-01" read as 25 Sep 2001, or a reference number taken for a date.
+DATE_TOLERANCE_DAYS = 31
+
+
+def transaction_date(parsed, received_at):
+	"""The date in the message when it is plausible, else when the phone received it."""
+	if not received_at:
+		return parsed or now_datetime()
+	if parsed and abs(date_diff(getdate(parsed), getdate(received_at))) <= DATE_TOLERANCE_DAYS:
+		return parsed
+	return received_at
 
 
 def _looks_financial(message: str) -> bool:
